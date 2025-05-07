@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+ <meta charset="UTF-8">
+ <title>Poultry Farm Dashboard</title>
+ <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+ <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+
+ <style>
+   /* === Body and Background === */
+   body {
+     position: relative;
+     font-family: 'Poppins', sans-serif;
+     text-align: center;
+     padding: 20px;
+     min-height: 100vh;
+     overflow-x: hidden;
+     background-color: rgba(255,255,255,0.2);
+   }
+   body::before {
+     content: "";
+     background-image: url("/static/images/farm_bg.jpg");
+     background-size: cover;
+     background-repeat: no-repeat;
+     background-attachment: fixed;
+     position: absolute;
+     top: 0;
+     left: 0;
+     right: 0;
+     bottom: 0;
+     filter: blur(8px);
+     opacity: 0.8;
+     z-index: -1;
+     animation: zoomInOut 20s infinite alternate ease-in-out;
+   }
+   @keyframes zoomInOut {
+     0% { transform: scale(1); }
+     100% { transform: scale(1.05); }
+   }
+   .gauge {
+     width: 220px;
+     height: 110px;
+     background: linear-gradient(to top, green 0%, yellow 50%, red 100%);
+     border-top-left-radius: 220px;
+     border-top-right-radius: 220px;
+     position: relative;
+     margin: 10px auto;
+     box-shadow: 0px 5px 15px rgba(0,0,0,0.4);
+   }
+   .needle {
+     width: 6px;
+     height: 110px;
+     background: #000;
+     position: absolute;
+     bottom: 0;
+     left: 50%;
+     transform-origin: bottom;
+     transition: transform 1s ease-out;
+   }
+   .gas-card {
+     background: rgba(255, 255, 255, 0.85);
+     border-radius: 20px;
+     padding: 20px;
+     margin: 20px;
+     box-shadow: 0px 8px 20px rgba(0,0,0,0.3);
+     transition: transform 0.3s ease;
+   }
+   .gas-card:hover {
+     transform: scale(1.05);
+   }
+   .btn-custom {
+     margin: 10px;
+     padding: 15px 25px;
+     font-size: 1.2rem;
+     border-radius: 10px;
+     background-color: #00acc1;
+     color: white;
+     border: none;
+   }
+   .btn-custom:hover {
+     background-color: #00838f;
+   }
+   h1 {
+     font-size: 3rem;
+     font-weight: bold;
+     color: #004d40;
+     text-shadow: 2px 2px #fff;
+     margin-top: 20px;
+   }
+   h4 {
+     color: #e65100;
+     margin-bottom: 40px;
+     text-shadow: 1px 1px #fff;
+   }
+   .chart-container {
+     background: rgba(255, 255, 255, 0.8);
+     padding: 20px;
+     border-radius: 20px;
+     box-shadow: 0px 4px 15px rgba(0,0,0,0.2);
+     margin-bottom: 50px;
+   }
+   @keyframes blink {
+     0% { opacity: 1; }
+     50% { opacity: 0; }
+     100% { opacity: 1; }
+   }
+   .alert-dot {
+     width: 10px;
+     height: 10px;
+     background: red;
+     border-radius: 50%;
+     display: inline-block;
+     animation: blink 1s infinite;
+     margin-left: 5px;
+   }
+ </style>
+</head>
+
+
+<body>
+
+
+<h1>🌿 Iot based Gas Measurement System Dashboard 🌿</h1>
+<h4>{{ today_str }}</h4>
+
+
+<div class="container">
+ <div class="row justify-content-center">
+
+
+   <div class="col-md-3 gas-card">
+     <a href="/gas/CO2" class="btn btn-primary mb-3">Get CO₂ Data</a>
+     <div class="gauge" id="gauge1">
+       <div class="needle" id="needle1"></div>
+     </div>
+     <h5><b>CO₂ (ppm):</b> {{ latest['Field 1'] }}
+     {% if latest['Field 1'] > 800 %}<span class="alert-dot"></span>{% endif %}
+     </h5>
+   </div>
+
+
+   <div class="col-md-3 gas-card">
+     <a href="/gas/CH4" class="btn btn-warning mb-3">Get CH₄ Data</a>
+     <div class="gauge" id="gauge2">
+       <div class="needle" id="needle2"></div>
+     </div>
+     <h5><b>CH₄ (ppm):</b> {{ latest['Field 2'] }}
+     {% if latest['Field 2'] > 50 %}<span class="alert-dot"></span>{% endif %}
+     </h5>
+   </div>
+
+
+   <div class="col-md-3 gas-card">
+     <a href="/gas/NH3" class="btn btn-danger mb-3">Get NH₃ Data</a>
+     <div class="gauge" id="gauge3">
+       <div class="needle" id="needle3"></div>
+     </div>
+     <h5><b>NH₃ (ppm):</b> {{ latest['Field 3'] }}
+     {% if latest['Field 3'] > 30 %}<span class="alert-dot"></span>{% endif %}
+     </h5>
+   </div>
+
+
+ </div>
+
+
+ <div class="mt-5">
+   <a href="/predict" class="btn btn-custom">🔮 Predict Next Day Gas Levels</a>
+ </div>
+
+
+ <div class="row mt-5">
+   <div class="col-md-10 offset-md-1 chart-container">
+     <canvas id="mainChart"></canvas>
+   </div>
+ </div>
+
+
+ {% if prediction %}
+ <div class="row mt-5">
+   <div class="col-md-10 offset-md-1 chart-container">
+     <h2>🔮 Next Day Prediction</h2>
+     <canvas id="predictionChart"></canvas>
+   </div>
+ </div>
+ {% endif %}
+
+
+</div>
+
+
+<script>
+ var gas1 = {{ latest['Field 1'] }};
+ var gas2 = {{ latest['Field 2'] }};
+ var gas3 = {{ latest['Field 3'] }};
+ var data = {{ graph_data | safe }};
+
+
+ function setNeedle(id, value) {
+   var angle = (value / 300) * 180;
+   document.getElementById(id).style.transform = `rotate(${angle}deg)`;
+ }
+ setNeedle('needle1', gas1);
+ setNeedle('needle2', gas2);
+ setNeedle('needle3', gas3);
+
+
+ const labels = data.map(d => d.created_at);
+ const co2 = data.map(d => d['Field 1']);
+ const ch4 = data.map(d => d['Field 2']);
+ const nh3 = data.map(d => d['Field 3']);
+
+
+ // Main Comparison Chart
+ new Chart(document.getElementById('mainChart'), {
+   type: 'line',
+   data: {
+     labels: labels,
+     datasets: [
+       { label: 'CO₂', data: co2, borderColor: '#1b5e20', borderWidth: 3, fill: false },   // Dark Green
+       { label: 'CH₄', data: ch4, borderColor: '#ef6c00', borderWidth: 3, fill: false },   // Orange
+       { label: 'NH₃', data: nh3, borderColor: '#6a1b9a', borderWidth: 3, fill: false }    // Purple
+     ]
+   },
+   options: {
+     plugins: { legend: { labels: { color: 'black', font: { size: 14 } } } },
+     scales: {
+       x: { ticks: { color: 'black' }, grid: { color: 'rgba(0,0,0,0.2)' } },
+       y: { ticks: { color: 'black' }, grid: { color: 'rgba(0,0,0,0.2)' } }
+     }
+   }
+ });
+
+
+ {% if prediction %}
+ const pred = {{ prediction | safe }};
+ const pred_labels = pred.map(d => d.index);
+ const pred_co2 = pred.map(d => d.CO2);
+ const pred_ch4 = pred.map(d => d.CH4);
+ const pred_nh3 = pred.map(d => d.NH3);
+
+
+ // ML Prediction Graph
+ new Chart(document.getElementById('predictionChart'), {
+   type: 'line',
+   data: {
+     labels: pred_labels,
+     datasets: [
+       { label: 'Predicted CO₂', data: pred_co2, borderColor: '#0277bd', borderWidth: 3, fill: false }, // Blue
+       { label: 'Predicted CH₄', data: pred_ch4, borderColor: '#c2185b', borderWidth: 3, fill: false }, // Pink
+       { label: 'Predicted NH₃', data: pred_nh3, borderColor: '#2e7d32', borderWidth: 3, fill: false }  // Green
+     ]
+   },
+   options: {
+     plugins: { legend: { labels: { color: 'black', font: { size: 14 } } } },
+     scales: {
+       x: { ticks: { color: 'black' }, grid: { color: 'rgba(0,0,0,0.2)' } },
+       y: { ticks: { color: 'black' }, grid: { color: 'rgba(0,0,0,0.2)' } }
+     }
+   }
+ });
+ {% endif %}
+</script>
+
+
+</body>
+</html>
